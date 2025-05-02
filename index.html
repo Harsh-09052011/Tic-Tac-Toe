@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tic Tac Toe</title>
+  <style>
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: start;
+      height: 100vh;
+      margin: 0;
+      background: #e2e8f0;
+      font-family: 'Segoe UI', sans-serif;
+      padding: 20px;
+      position: relative;
+    }
+
+    h1 {
+      margin-bottom: 10px;
+      font-size: 2rem;
+      color: #333;
+    }
+
+    .controls {
+      margin-bottom: 20px;
+    }
+
+    .controls button {
+      margin: 5px;
+      padding: 10px 20px;
+      font-size: 1rem;
+      border: none;
+      border-radius: 10px;
+      background-color: #007BFF;
+      color: white;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+
+    .controls button:hover {
+      background-color: #0056b3;
+    }
+
+    .board {
+      display: grid;
+      grid-template-columns: repeat(3, 100px);
+      gap: 10px;
+    }
+
+    .cell {
+      width: 100px;
+      height: 100px;
+      background: #d1d5db;
+      border-radius: 15px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 3rem;
+      font-weight: 700;
+      color: #333;
+      cursor: pointer;
+      transition: background 0.3s, transform 0.2s;
+    }
+
+    .cell:hover {
+      background: #cbd5e1;
+      transform: scale(1.05);
+    }
+
+    .status {
+      margin-top: 20px;
+      font-size: 1.2rem;
+      color: #333;
+    }
+
+    /* Modal Styles */
+    .overlay {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+    }
+
+    .modal {
+      background: white;
+      padding: 30px 40px;
+      border-radius: 15px;
+      text-align: center;
+      box-shadow: 0 10px 20px rgba(0, 0, 0, 0.25);
+      font-size: 1.5rem;
+    }
+
+    .modal button {
+      margin-top: 20px;
+      padding: 10px 20px;
+      font-size: 1rem;
+      background: #007BFF;
+      color: white;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+
+    .modal button:hover {
+      background: #0056b3;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Tic Tac Toe</h1>
+
+  <div class="controls">
+    <button onclick="setMode('single')">Single Player</button>
+    <button onclick="setMode('two')">Two Players</button>
+    <button onclick="restartGame()">Restart</button>
+  </div>
+
+  <div class="board" id="board"></div>
+
+  <div class="status" id="status"></div>
+
+  <!-- Popup Modal -->
+  <div class="overlay" id="overlay">
+    <div class="modal" id="modal">
+      <div id="modal-message"></div>
+      <button onclick="closeModal()">OK</button>
+    </div>
+  </div>
+
+  <!-- Sound Effects -->
+  <audio id="clickSound" src="https://assets.mixkit.co/sfx/preview/mixkit-arcade-game-jump-coin-216.wav"></audio>
+  <audio id="winSound" src="https://assets.mixkit.co/sfx/preview/mixkit-game-bonus-reached-2065.wav"></audio>
+  <audio id="drawSound" src="https://assets.mixkit.co/sfx/preview/mixkit-arcade-retro-game-over-213.wav"></audio>
+  <audio id="restartSound" src="https://assets.mixkit.co/sfx/preview/mixkit-video-game-mystery-alert-234.wav"></audio>
+
+  <script>
+    const boardElement = document.getElementById('board');
+    const statusElement = document.getElementById('status');
+    const overlay = document.getElementById('overlay');
+    const modalMessage = document.getElementById('modal-message');
+
+    // Sound elements
+    const clickSound = document.getElementById('clickSound');
+    const winSound = document.getElementById('winSound');
+    const drawSound = document.getElementById('drawSound');
+    const restartSound = document.getElementById('restartSound');
+    
+    let board = ["", "", "", "", "", "", "", "", ""];
+    let currentPlayer = "X";
+    let gameActive = true;
+    let mode = 'two'; // default mode
+
+    const winConditions = [
+      [0,1,2], [3,4,5], [6,7,8],
+      [0,3,6], [1,4,7], [2,5,8],
+      [0,4,8], [2,4,6]
+    ];
+
+    function setMode(selectedMode) {
+      mode = selectedMode;
+      restartGame();
+    }
+
+    function restartGame() {
+      board = ["", "", "", "", "", "", "", "", ""];
+      currentPlayer = "X";
+      gameActive = true;
+      statusElement.textContent = `${currentPlayer}'s Turn`;
+      renderBoard();
+      restartSound.play();
+      showModal("Game Restarted!");
+    }
+
+    function renderBoard() {
+      boardElement.innerHTML = '';
+      board.forEach((cell, index) => {
+        const cellElement = document.createElement('div');
+        cellElement.classList.add('cell');
+        cellElement.textContent = cell;
+        cellElement.addEventListener('click', () => cellClick(index));
+        boardElement.appendChild(cellElement);
+      });
+    }
+
+    function cellClick(index) {
+      if (board[index] !== "" || !gameActive) return;
+
+      board[index] = currentPlayer;
+      clickSound.play();
+      renderBoard();
+      checkResult();
+
+      if (gameActive) {
+        if (mode === 'single' && currentPlayer === "O") {
+          setTimeout(computerMove, 500);
+        }
+      }
+    }
+
+    function checkResult() {
+      let roundWon = false;
+      for (let condition of winConditions) {
+        const [a, b, c] = condition;
+        if (board[a] && board[a] === board[b] && board[a] === board[c]) {
+          roundWon = true;
+          break;
+        }
+      }
+
+      if (roundWon) {
+        statusElement.textContent = `${currentPlayer} Wins! 🎉`;
+        gameActive = false;
+        winSound.play();
+        showModal(`${currentPlayer} Wins! 🎉`);
+        return;
+      }
+
+      if (!board.includes("")) {
+        statusElement.textContent = "Draw!";
+        gameActive = false;
+        drawSound.play();
+        showModal("It's a Draw!");
+        return;
+      }
+
+      currentPlayer = currentPlayer === "X" ? "O" : "X";
+      statusElement.textContent = `${currentPlayer}'s Turn`;
+    }
+
+    function computerMove() {
+      if (!gameActive) return;
+
+      const emptyCells = board
+        .map((cell, idx) => cell === "" ? idx : null)
+        .filter(idx => idx !== null);
+
+      if (emptyCells.length > 0) {
+        const randomIndex = emptyCells[Math.floor(Math.random() * emptyCells.length)];
+        board[randomIndex] = "O";
+        renderBoard();
+        checkResult();
+      }
+    }
+
+    function showModal(message) {
+      modalMessage.textContent = message;
+      overlay.style.display = "flex";
+    }
+
+    function closeModal() {
+      overlay.style.display = "none";
+    }
+
+    // Start
+    restartGame();
+  </script>
+
+</body>
+</html>
